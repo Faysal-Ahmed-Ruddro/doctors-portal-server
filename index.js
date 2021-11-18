@@ -3,18 +3,18 @@ const cors = require("cors");
 require("dotenv").config();
 const admin = require("firebase-admin");
 const { MongoClient } = require("mongodb");
+const ObjectId = require("mongodb").ObjectId;
 const app = express();
 const port = process.env.PORT || 5000;
 
 
-// doctors - protal - firebase - adminsdk.json;
+  
+// doctors - protal - firebase - adminsdk.json  jwt token;
 
 var serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_ACCOUNT);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
-
-
 
 // middleware
 app.use(cors());
@@ -27,21 +27,15 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
 });
 
-async function verifyToken(req,res,next) {
-  if(req?.headers?.authorization.startsWith("Bearer ")){
-    const token = req?.headers?.authorization.split(' ')[1];
-    try{
+async function verifyToken(req, res, next) {
+  if (req?.headers?.authorization.startsWith("Bearer ")) {
+    const token = req?.headers?.authorization.split(" ")[1];
+    try {
       const decodedUser = await admin.auth().verifyIdToken(token);
-      req.decodedEmail = decodedUser.email
-    }
-    catch{
-
-    }
-
-
-
+      req.decodedEmail = decodedUser.email;
+    } catch {}
   }
- next()
+  next();
 }
 
 async function run() {
@@ -53,7 +47,7 @@ async function run() {
     console.log("database connected successfully");
 
     // APPOINMENT GET API
-    app.get("/appointments",verifyToken, async (req, res) => {
+    app.get("/appointments", verifyToken, async (req, res) => {
       const email = req.query.email;
       const date = req.query.date;
       const query = { email: email, date: date };
@@ -61,16 +55,22 @@ async function run() {
       const appointment = await cursor.toArray();
       res.json(appointment);
     });
+    // SINGLE APPOINTMENT API
+      app.get("/appointment/:id",async(req,res)=>{
+        const id = req.params.id;
+        const query = {_id:ObjectId(id)}
+        const appointment = await appointmentCollection.findOne(query);
+        res.json(appointment)
+      })
 
     // APPOINMENT POST API
-    app.post("/appointments", async (req, res) => {
+    app.post("/orders", async (req, res) => {
       const appointment = req.body;
       const result = await appointmentCollection.insertOne(appointment);
       res.json(result);
     });
 
     // USER GET API FOR MAKE ADMIN
-
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
@@ -103,24 +103,26 @@ async function run() {
     });
 
     // Modify the user
-    app.put("/users/admin",verifyToken, async (req, res) => {
+    app.put("/users/admin", verifyToken, async (req, res) => {
       const user = req.body;
-      const requester = req.decodedEmail 
-      if(requester) {
-        const requesterAccount = await usersCollection.findOne({email: requester})
-        if(requesterAccount.role === "admin"){
+      const requester = req.decodedEmail;
+      if (requester) {
+        const requesterAccount = await usersCollection.findOne({
+          email: requester,
+        });
+        if (requesterAccount.role === "admin") {
           const filter = { email: user.email };
           const updateDoc = { $set: { role: "admin" } };
           const result = await usersCollection.updateOne(filter, updateDoc);
           res.json(result);
         }
+      } else {
+        res
+          .status(401)
+          .json({ message: "You Don't have access to make admin" });
       }
-      else{
-        res.status(401).json({message: "You Don't have access to make admin"})
-      }
-      
-      
     });
+
   } finally {
     // await client.close();
   }
