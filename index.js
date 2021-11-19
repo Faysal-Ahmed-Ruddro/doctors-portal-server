@@ -65,7 +65,7 @@ async function run() {
       })
 
     // APPOINMENT POST API
-    app.post("/orders", async (req, res) => {
+    app.post("/appointments", async (req, res) => {
       const appointment = req.body;
       const result = await appointmentCollection.insertOne(appointment);
       res.json(result);
