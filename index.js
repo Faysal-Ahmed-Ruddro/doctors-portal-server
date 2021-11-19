@@ -6,6 +6,7 @@ const { MongoClient } = require("mongodb");
 const ObjectId = require("mongodb").ObjectId;
 const app = express();
 const port = process.env.PORT || 5000;
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 
   
@@ -69,6 +70,15 @@ async function run() {
       const result = await appointmentCollection.insertOne(appointment);
       res.json(result);
     });
+    // APPOINTMENT PUT API FOR UPDATE 
+    app.put("/appointment/:id",async(req,res)=>{
+      const id = req.params.id;
+      const payment = req.body
+      const filter = {_id:ObjectId(id)};
+      const updateDoc = {$set :{ payment:payment}};
+      const result = await appointmentCollection.updateOne(filter,updateDoc)
+      res.json(result)
+    })
 
     // USER GET API FOR MAKE ADMIN
     app.get("/users/:email", async (req, res) => {
@@ -122,6 +132,21 @@ async function run() {
           .json({ message: "You Don't have access to make admin" });
       }
     });
+
+    app.post("/create-payment-intent",async(req,res)=>{
+      const paymentInfo = req.body;
+      const amount = paymentInfo.price*100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount:amount,
+        currency: "usd",
+        payment_method_types:["card"]
+      })
+      res.json({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
+
+
 
   } finally {
     // await client.close();
