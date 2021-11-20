@@ -7,6 +7,7 @@ const ObjectId = require("mongodb").ObjectId;
 const app = express();
 const port = process.env.PORT || 5000;
 const stripe = require("stripe")(process.env.STRIPE_SECRET);
+const fileUpload = require("express-fileupload")
 
 
   
@@ -20,6 +21,7 @@ admin.initializeApp({
 // middleware
 app.use(cors());
 app.use(express.json());
+app.use(fileUpload());
 
 // database connect
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.qrkkr.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
@@ -45,6 +47,7 @@ async function run() {
     const database = client.db("doctors_portal");
     const appointmentCollection = database.collection("appointments");
     const usersCollection = database.collection("users");
+    const doctorsCollection = database.collection("doctors")
     console.log("database connected successfully");
 
     // APPOINMENT GET API
@@ -79,7 +82,26 @@ async function run() {
       const result = await appointmentCollection.updateOne(filter,updateDoc)
       res.json(result)
     })
+      // DOCTORS POST API
+      app.post("/doctors", async(req,res)=>{
+        const name = req.body.name;
+        const email = req.body.email;
+        const pic =  req.files.image;
+        const picData = pic.data;
+        const encodedPic = picData.toString("base64");
+        const imageBuffer = Buffer.from(encodedPic,"base64");
+        const doctors = {name,email,image:imageBuffer};
+        const result = await doctorsCollection.insertOne(doctors);
+        res.json(result)
+      });
+      // DOCTORS GET API 
+      app.get("/doctors" , async(req,res)=>{
+        const cursor = doctorsCollection.find({})
+        const doctors = await cursor.toArray()
+        res.json(doctors);
 
+      })
+     
     // USER GET API FOR MAKE ADMIN
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
